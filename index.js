@@ -1,4 +1,5 @@
 const express = require('express');
+const request = require('request');
 const stories = require('./stories');
 
 const app = express();
@@ -10,7 +11,7 @@ app.use((req, res, next) => {
 });
 
 app.use((req, res, next) => {
-    res.header('Acces-Control-Allow-Origin', '*'); // * for all pages
+    res.header('Acces-Control-Allow-Origin', '*');
 
     next();
 });
@@ -27,7 +28,15 @@ app.get('/stories/:title', (req, res) => {
     const { title } = req.params;
 
     res.json(stories.filter(story => story.title.includes(title)));
-    // this will give on the page all stories with the title in witch contains the :"title" word
+});
+
+app.get('/topstories', (req, res) => {
+    request(
+        { url: 'https://hacker-news.firebaseio.com/v0/topstories.json' },
+        (error, response, body) => {
+            res.json(JSON.parse(body)); // JSON.parse return an array instead a string
+        }
+    );
 });
 
 const PORT = 3000;
