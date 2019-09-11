@@ -1,5 +1,6 @@
 const express = require('express');
 const request = require('request');
+const path = require('path');
 const stories = require('./stories');
 
 const app = express();
@@ -11,10 +12,12 @@ app.use((req, res, next) => {
 });
 
 app.use((req, res, next) => {
-    res.header('Acces-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Origin', '*');
 
     next();
 });
+
+app.use(express.static(path.join(__dirname, 'client/dist')));
 
 app.get('/ping', (req, res) => {
     res.send('pong!');
@@ -32,14 +35,35 @@ app.get('/stories/:title', (req, res) => {
 
 app.get('/topstories', (req, res, next) => {
     request(
-        { url: 'https://hacker-news.firebaseio.com/v0/topstories.json' }, // to have an error change the url
+        { url: 'https://hacker-news.firebaseio.com/v0/topstories.json' },
         (error, response, body) => {
             if (error || response.statusCode !== 200) {
                 console.log('going to next');
                 return next(new Error('Error requesting top stories'));
             }
 
-            res.json(JSON.parse(body)); // JSON.parse return an array instead a string
+            const topStories = JSON.parse(body);
+            const limit = 10;
+
+            Promise.all(
+                topStories.slice(0, limit).map(story => { // will show the first 10 stories
+                    return new Promise((resolve, reject) => {
+                        request({ url: `https://hacker-news.firebaseio.com/v0/item/${story}.json` },
+                            (error, response, body) => {
+                                if (error || response.statusCode !== 200) {
+                                    return reject(new Error('Error requesting story item'));
+                                }
+
+                                resolve(JSON.parse(body));
+                            }
+                        );
+                    })
+                })
+            )
+                .then(fullTopStories => {
+                    res.json(fullTopStories);
+                })
+                .catch(error => next(error));
         }
     );
 });
